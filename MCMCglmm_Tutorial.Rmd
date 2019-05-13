@@ -35,7 +35,7 @@ First we will load some data as an example. We will use data on morphological me
 ```{r load_data, message=FALSE, warning=FALSE}
 getwd() #Check the Working directory
 #setwd() #Change the working directory.
-dove <- read.table("data/DB_ColumbidaeData.txt",h=T)
+dove <- read.table("DB_ColumbidaeData.txt",h=T)
 ```
 
 This data file is based on a subset of the data used in an analysis on the relation between foraging behaviour and the evolution of morphological adaptations (Lapiedra et al. 2013)
@@ -259,7 +259,7 @@ As species are not independent of each other due to shared ancestry, we need to 
 We open the tree and plot it:
 
 ```{r Plot tree, message=FALSE, warning=FALSE, verbose = FALSE}
-tree <- read.tree("data/ColumbidaeTree.tre")
+tree <- read.tree("ColumbidaeTree.tre")
 plot(tree,cex=0.3)
 ```
 
