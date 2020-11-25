@@ -1,26 +1,26 @@
 ---
 title: "Bayesian generalised mixed models with MCMCglmm"
 author: "Ferran Sayol"
-date: "20th of December 2018"
+date: "5th November 2020"
 output:
   pdf_document: default
+  word_document: default
   html_document:
     df_print: paged
 ---
 
-This is a short guide of running mixed models under a bayesian framework using the MCMCglmm R package. The course is structured in three parts: 1) See the basics of MCMCglmm models (run and check the output); 2) Adding random effects and modify the priors; 3) Correct for phylogenetic effects.
+*Course editions:*
+5th November 2020, Gothenburg (Sweden)
+20th December 2018, Erlangen (Germany)
 
-### Package Installation.
+*Summary*
+This is a short guide of running mixed models under a bayesian framework using the MCMCglmm R package [(Hadfield 2010)](https://cran.r-project.org/web/packages/MCMCglmm/vignettes/Overview.pdf). 
 
-First we need to install the MCMCglmm package. We also install an additional packages to use phylogenetic trees (phytools).
+The course is structured in three parts: 1) See the basics of MCMCglmm models (run and check the output); 2) Adding random effects; 3) Correct for phylogenetic effects.
 
-```{r install_packages, results="hide", message=FALSE, warning=FALSE}
-if(!require(MCMCglmm)) install.packages("MCMCglmm")
-if(!require(ggplot2)) install.packages("ggplot2")
-if(!require(phytools)) install.packages("phytools")
-```
+### Used packages
 
-Next we load up the packages we just installed from the library and we are good to go.
+First we need to install the MCMCglmm package. We also install an additional packages to do plots (ggplot2) and work with phylogenetic trees (phytools). Next, we load the packages we have just installed from the library.
 
 ```{r load_pakages, results="hide", message=FALSE, warning=FALSE}
 library(MCMCglmm)
@@ -30,43 +30,43 @@ library(ggplot2)
 
 ## PART 1: Introduction to MCMCglmm models
 
-First we will load some data as an example. We will use data on morphological measurements and ecology of Pigeons&Doves (Columbidae).
+First we will load some data as an example. We will use data on morphological measurements and ecology of pigeons & doves (Columbidae).
 
-```{r load_data, message=FALSE, warning=FALSE}
-getwd() #Check the Working directory
-#setwd() #Change the working directory.
-dove <- read.table("DB_ColumbidaeData.txt",h=T)
+```{r load_data, message=FALSE, warning=FALSE, echo=T}
+getwd() #Check the Working directory use "setwd()"" if necessary
+cdata <- read.table("data/ColumbidaeTraits.txt",h=T)
 ```
 
-This data file is based on a subset of the data used in an analysis on the relation between foraging behaviour and the evolution of morphological adaptations (Lapiedra et al. 2013)
-\href{https://royalsocietypublishing.org/doi/full/10.1098/rspb.2012.2893}{Link to paper}. Note that from the original data we have generated N repeated measures for each species, adding random noise on each data point.
+This data file is based on a subset of the data used in an analysis on the relation between foraging behaviour and the evolution of morphological adaptations 
+[(Lapiedra et al. 2013)](https://doi.org/10.1098/rspb.2012.2893).
 
 ```{r show_data, message=FALSE, warning=FALSE}
-head(dove)
+head(cdata)
 ```
 
-Let's pretend our goal is to study the relation between morphology and ecology. For instance, if the tarsus length is related to foraging behaviour. But we will first start by exploring the relation between tarsus length and body size.
+Let's pretend our goal is to study the relation between morphology and ecology. For instance, whether the [tarsus length](https://en.wikipedia.org/wiki/Tarsometatarsus) is related to foraging behaviour. But we will first start by exploring the relation between tarsus length and body size.
 
 ```{r scatterplot, message=FALSE, warning=FALSE}
-ggplot(dove, aes(x=log(mass.g), y=log(tarsus.mm))) +
-  geom_point(shape=21)
+ggplot(cdata, aes(x=log(body.g), y=log(tarsus.mm))) +
+  geom_point(shape=21)+theme_classic()
 ```
 
-Now let's run a simple model with tarsus.mm as response of body size (mass.g).
+Now let's run a simple model with tarsus.mm as response of body size (body.g).
 
-When running an MCMCglmm, we need to specify some parameters of the mcmc chain: How many iterations we want to run the chain for (nitt), the burnin we want to discard at the start of the chain (burnin) and also how often we want to sample and store from the chain (`thin`). We discard a burnin as we don't want the starting point of the chain to over-influence our final estimates.
+When running an MCMCglmm, we need to specify some parameters of the mcmc chain: How many iterations we want to run the chain for (nitt), the burnin we want to discard at the start of the chain (burnin) and also how often we want to sample and store from the chain (thin). We discard a burnin as is normal practive in Bayesian analyses.
 
 ```{r setting formula, message=FALSE, warning=FALSE}
 prior1 <- list(R=list(V = 1,nu = 0.002)) #We will see this later
 
-mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(mass.g), 
-                     data = dove, prior = prior1,verbose=F,
-                     nitt = 100, thin=1, burnin = 1)
+mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(body.g), 
+                     data = cdata, prior = prior1,verbose=F,
+                     nitt = 500, thin=10, burnin = 1)
 ```
 
-Before we even look at our model putput we can check if the model ran appropriately. We can do this by visually inspecting the chains. We can extract the full chains using `model$Sol` for the fixed effects and `model$VCV` for the variance terms. So `Sol[,1]` will give you the first fixed term, in this case the intercept, and `VCV[,1]` will give you the first random term, which is just the residual term here. As our model is an mcmc object when we use the plot function we get a trace plot.
+Before we even look at our model output we can check if the model ran appropriately (e.g. if the model converged and if there is any issue in chain mixing). We can do this by visually inspecting the chains. For the fixed effects, the samples are stored in *Sol* and for the variance terms, in *VCV*. So *model$Sol[,1]* will give you the first fixed term, in this case the intercept, and *model$VCV[,1]* will give you the first random term, which is just the residual term here. As our model is an mcmc object when we use the *plot()* function we get a trace plot.
 
 ```{r MCMCglmm_plot, message=FALSE, warning=FALSE, verbose = FALSE}
+
 #plot the fist fixed term, the intercpet.
 plot(mod1.1$Sol)
 #plot the fist variance term, the residual error term.
@@ -75,34 +75,35 @@ plot(mod1.1$VCV)
 
 On the right hand side of the plots is the posterior distributions for each of the terms. On the left side of these plots are the traces of the mcmc chain for each estimate. What we want to see in these trace plots has an aparent random pattern. That is a trace with no obvious trend that is bouncing around some stable point. 
 
-Another thing we also want to check is the level of auto-correlation in the chain traces. We can do this using autocorr.diag() which gives the level of correlation along the chain between some lag sizes.
+Another thing we also want to check is the level of auto-correlation in the chain traces. We can do this using *autocorr.diag()* which gives the level of correlation along the chain between some lag sizes. (Note that this is the same thing we were looking at for another purpose yesterday when we disucsed temporal autocorrelation for CO2 and temperature)
 
 Let's see some diagnosis (Autocorrelation)
 
 ```{r autocorr, message=FALSE, warning=FALSE}
+
 autocorr.diag(mod1.1$Sol) #Solutions (coeficients)
 autocorr.diag(mod1.1$VCV) #Variance
 ```
 
-Another way is to look at autocorrelation plots for each of the traces. For example, let's check the auto-correlation in the intercept chain using the `acf` function
+Another way is to look at autocorrelation plots for each of the traces. For example, let's check the auto-correlation in the intercept chain using the *acf* function
 
 ```{r acf, message=FALSE, warning=FALSE, verbose = FALSE}
 #acf plot for the first fixed estimate in our model (the intercept)
 acf(mod1.1$Sol[,1],lag.max =100)
 ```
 
-Ideally, we have to make sure that the autocorrelation is less than 0.1. The thinning is used to help reduce autocorrelation in our sample, how much you use often depends on how much autocorrelation you find and we can reduce autocorrelation by increasing the thining interval. As a result, we might have to increase the total number of iterations as well to have a sample of at least 1000. We can also set a Burn-in (normally 5-10% of samples) to get rid of the first samples that have not converged yet.
+Ideally, we have to make sure that the autocorrelation is low (i.e. less than 0.1 is reccomended). The thinning is used to reduce autocorrelation in our sample, how much you use often depends on how much autocorrelation you find and we can reduce autocorrelation by increasing the thining interval. As a result, we might have to increase the total number of iterations as well to have a sample of at least 1000. We can also set a Burn-in (normally 5-10% of samples) to get rid of the first samples that have not converged yet.
 
 -----
 
 * EXERCISE 1:
 *Increase the thining interval and the number of iterations to make sure there is no autocorrelation and to have a sample of >1000.*
 
-```{r Exercise1, message=FALSE, warning=FALSE}
+```{r Exercise1, message=FALSE, warning=FALSE,echo=T}
 prior1 <- list(R=list(V = 1,nu = 0.002)) #We will see this later
 
-mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(mass.g), 
-                     data = dove, prior = prior1,verbose=T,
+mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(body.g), 
+                     data = cdata, prior = prior1,verbose=F,
                      nitt = 101000, thin=100, burnin = 1000)
 ```
 
@@ -128,51 +129,51 @@ Posterior mean of fixed factors:
 HPDinterval(mod1.1$Sol)
 ```
 
-We also have the effective sample size (*eff.samp*) and the *pMCMC* which calculated as two times the probability that the estimate is either > or <  0, using which ever one is smaller. However, since our data has been mean centred and expressed in units of standard deviation we can simply look at what proportion of our posterior is on either side of zero. This mean centering and expression in of our data units of standard deviation hence allows us to use a cut off point like a p-value but without boiling down the whole distribution to one value.
+We also have the effective sample size (*eff.samp*).
 
-We also have the *DIC* which is a Bayesian version of *AIC*. Like *AIC* it is a measure of the trade-off between the "fit" of the model and the number of parameters, with a lower number better.
+Finally, the *pMCMC* is an equivalent of the famous *p-value* in Frequentist statistics. In MCMCglmm models, this is calculated as two times the probability that the estimate is either > or <  0, using which ever one is smaller. However, since our data has been mean centred and expressed in units of standard deviation we can simply look at what proportion of our posterior is on either side of zero.
 
-Comming back to theinitial question, we want to see if foraging behavioir can explain tarsus length while accounting for body size. Let's do a plot first:
+To evaluate the fit of the model, we have the parameter *DIC*, which is a Bayesian version of *AIC*. Like *AIC* it is a measure of the trade-off between the "fit" of the model and the number of parameters, with a lower number better.
+
+Comming back to the initial question, we want to see if foraging behavioir can explain tarsus length while accounting for body size. Let's do a plot first:
 
 ```{r scatterplot colors, message=FALSE, warning=FALSE}
-ggplot(dove, aes(x=log(mass.g), y=log(tarsus.mm), color=foraging)) +
-  geom_point(shape=19)
+ggplot(cdata, aes(x=log(body.g), y=log(tarsus.mm), color=foraging)) +
+  geom_point(shape=19)+theme_classic()+scale_color_manual(values=c("forestgreen","orange"))
 ```
 
-It looks like foraging behaviour can explain relative differences in tarsus length. But we need to test this:
+It looks like relative length of the tarsus is influenced by foraging behaviour. But we need to formally test this:
 
 -----
 
 * EXERCISE 2:
 *Run a new model (mod1.2) including also the foraging ecology together with body size as predictor and compare the DIC with mod1.1 / Which of the models is better?*
 
+-----
+
 ```{r Exercise2, message=FALSE, warning=FALSE}
 prior1 <- list(R=list(V = 1,nu = 0.002)) #We will see this later
 
-names(dove)
-mod1.2 <- MCMCglmm(log(tarsus.mm) ~ log(mass.g)+foraging, 
-                     data = dove, prior = prior1,verbose=F,
+names(cdata)
+mod1.2 <- MCMCglmm(log(tarsus.mm) ~ log(body.g)+foraging, 
+                     data = cdata, prior = prior1,verbose=F,
                      nitt = 101000, thin=100, burnin = 1000)
-mod1.3 <- MCMCglmm(log(tarsus.mm) ~ log(mass.g)+foraging-1, 
-                     data = dove, prior = prior1,verbose=F,
+# We can remove the intercept:
+mod1.3 <- MCMCglmm(log(tarsus.mm) ~ log(body.g)+foraging-1, 
+                     data = cdata, prior = prior1,verbose=F,
                      nitt = 101000, thin=100, burnin = 1000)
 
 summary(mod1.2)
 summary(mod1.3)
 
+# Now we can plot the output of the models:
+
+ggplot(cdata, aes(x=log(body.g), y=log(tarsus.mm), color=foraging)) +
+  geom_point(shape=19) + theme_classic() + scale_color_manual(values=c("forestgreen","orange")) +
+  geom_abline(intercept = posterior.mode(mod1.3$Sol)[2],slope = posterior.mode(mod1.3$Sol)[1],color="forestgreen")+
+  geom_abline(intercept = posterior.mode(mod1.3$Sol)[3],slope = posterior.mode(mod1.3$Sol)[1],color="orange")
 
 ```
-
-```{r scatterplot colors + model, message=FALSE, warning=FALSE}
-ggplot(dove, aes(x=log(mass.g), y=log(tarsus.mm), color=foraging)) +
-  geom_point(shape=19) + 
-  geom_abline(intercept = posterior.mode(mod1.3$Sol)[2],slope = posterior.mode(mod1.3$Sol)[1],color="red")+
-  geom_abline(intercept = posterior.mode(mod1.3$Sol)[3],slope = posterior.mode(mod1.3$Sol)[1],color="blue")
-
-summary(mod1.1)
-
-```
-
 
 -----
 
@@ -181,14 +182,14 @@ summary(mod1.1)
 One last thing to check is that our MCMC chain has properly converged and that our estimate is not the result of some type of transitional behaviour. That is have our chains "found" the optimum or do we need to let them run longer before they settle around some estimate. To check this we will run a second model and see if it converges on the same estimates as our first model.
 
 ```{r model convergence, message=FALSE, warning=FALSE}
-mod1.3 <- MCMCglmm(log(tarsus.mm) ~ log(mass.g)+foraging, 
-                     data = dove, prior = prior1,verbose=F,
+mod1.3a <- MCMCglmm(log(tarsus.mm) ~ log(body.g)+foraging, 
+                     data = cdata, prior = prior1,verbose=F,
                      nitt = 101000, thin=100, burnin = 1000)
-mod1.3b <- MCMCglmm(log(tarsus.mm) ~ log(mass.g)+foraging, 
-                     data = dove, prior = prior1,verbose=F,
+mod1.3b <- MCMCglmm(log(tarsus.mm) ~ log(body.g)+foraging, 
+                     data = cdata, prior = prior1,verbose=F,
                      nitt = 101000, thin=100, burnin = 1000)
 #They have reached the same solution?
-plot(mcmc.list(mod1.3$Sol[,2], mod1.3b$Sol[,2]))
+plot(mcmc.list(mod1.3a$Sol[,2], mod1.3b$Sol[,2]))
 summary(mod1.3b)
 ```
 
@@ -200,46 +201,65 @@ To give priors for MCMCglmm we need to make an object that is in a list format t
 
 In our model we have 3 fixed terms B (1 intercept + 2 factors) and the residual term R.
 
-```{r priors, message=FALSE, warning=FALSE}
+For fixed effects (B), MCMCglmm uses a normal distribution. The terms mu and V give the mean and variance of this normal distribution. Here we set mu as 0 and the variance as a large number to make these priors effectively uninformative (These are called non-informative priors).
+
+Since we have three fixed terms (two intercepts and one slope) we can use the *diag()* function to create a matrix to store a prior for each.
+
+```{r fix prior 1, message=FALSE, warning=FALSE}
+fixMu <- rep(0,3)
+fixV <- diag(3)*10^8
+prior2.1 <- list(B=list(mu=fixMu,V=fixV),R=list(V = 1,nu = 0.002))
+
+mod2.1 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(body.g), 
+                     data = cdata, prior = prior2.1,verbose=F,family="gaussian",
+                     nitt = 1100, thin=10, burnin = 100)
+summary(mod2.1)
+
+```
+
+Normally we don't need to set this as MCMCglmm will set non-informative priors automatically for fixed terms. Then, we can set the prior by only specifying the R term:
+
+```{r simplified prior, message=FALSE, warning=FALSE}
 prior2.1 <- list(R=list(V = 1,nu = 0.002))
 
-mod2.1 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(mass.g), 
-                     data = dove, prior = prior2.1,verbose=F,family="gaussian",
+mod2.1 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(body.g), 
+                     data = cdata, prior = prior2.1,verbose=F,family="gaussian",
                      nitt = 1100, thin=10, burnin = 100)
 summary(mod2.1)
 ```
 
-For fixed effects (B) the terms mu and V give the variance and mean of a normal distribution. Here we set mu as 0 and the variance as a large number to make these priors uninformative. Since we have three fixed terms (two intercepts and one slope) we can use the diag function to create a matrix to store a prior for each. Normally we don't need to set this as MCMCglmm will set non-informative priors automatically for fixed terms. Then, we can set the prior by only specifying the R term:
+MCMCglmm uses inverse-Wishart priors for any of the variance terms (R or G). The variance is described by the parameters *nu* and *V*.
 
-```{r simplified prior, message=FALSE, warning=FALSE}
-prior2.1 <- list(R=list(V = 1,nu = 0.002))
-```
+V=1 and nu=0.002 is frequently used for variance components.
 
-For any of the variance terms (R or G) we need to make sure that the distribution is bounded at zero as the variance term needs to be positive. In MCMCglmm the variance is described the parameters *nu* and *V*. As again we don't have any prior information, we will use weakly informative prior values such as descripted as *V* = 1 and *nu* = 0.002. 
+See some information about inverse-Wishart priors here: 
+https://en.wikipedia.org/wiki/Inverse-Wishart_distribution
+
 
 ### Mixed models: Adding random factors to our MCMCglmm
 
-Just to remember, mixed models are referred to models that contain both fixed and random factors.
+Just to remember, mixed models are referred to models that contain both fixed and random factors. Depending in our interest a factor might be considered random or fix. [Here](https://www.theanalysisfactor.com/specifying-fixed-and-random-factors-in-mixed-models/), you can see a more detailed explanation.
 
-Let's add a random term of measurement ("measureID" > Who took the measure) in the *dove* example. Like before, we need to set up the prior however we will let the model estimte the fixed effects this time. To add a random term we now add a *G* structure that acts just like the other random varience term and is defined using *nu* and *V*.
+Let's add a random term of measurement ("measure") in the *cdata* example. This variable states which researcher took the morphological measurements (A,B,C). Like before, we need to set up the prior. To add a random term we now add a *G* structure that acts just like the other random varience term and is defined using *nu* and *V*.
 
 ```{r Add random to prior mixed, message=FALSE, warning=FALSE}
-prior2.2 <- list(G = list(G1 = list(nu=0.002, V=1),G2 = list(nu=0.002, V=1)),
+prior2.2 <- list(G = list(G1 = list(nu=0.002, V=1)),
               R = list(nu=0.002, V=1))
 ```
 
-We can now include the random term in the model in the section `random= ~`.
+Here, we will include "measure" as a random effect:
+```{r Table Measurements, message=FALSE, warning=FALSE, verbose = FALSE}
+table(cdata$measure)
+```
 
-Here, we will include "measureID" as a random effect, as we have repeated measures for each of the species.
-
+We can do so by including the random variable in the model in the section `random= ~`.
 
 ```{r run mixed effects MCMCglmm, message=FALSE, warning=FALSE, verbose = FALSE}
-table(dove$measureID)
-table(dove$location)
-names(dove)
-mod2.2 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(mass.g),
-                     random= ~measureID+location,
-                     data = dove, prior = prior2.2,verbose=F,
+table(cdata$measure)
+names(cdata)
+mod2.2 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(body.g),
+                     random= ~measure,
+                     data = cdata, prior = prior2.2,verbose=F,
                      nitt = 1100, thin=10, burnin = 100)
 summary(mod2.2)
 ```
@@ -247,33 +267,43 @@ summary(mod2.2)
 -----
 
 * EXECISE 3:
-*Include also the geographical location ("location") as a random effect. Remember you will need to specify the prior for this new factor as well.*
+*Include also the geographical region ("region") as a random effect. Remember you will need to specify the prior for this new factor as well.*
+
+```{r Exercise 3, message=FALSE, warning=FALSE,echo=T}
+prior2.3 <- list(G = list(G1 = list(nu=0.002, V=1),G2 = list(nu=0.002, V=1)),R = list(nu=0.002, V=1))
+
+table(cdata$region)
+names(cdata)
+mod2.2 <- MCMCglmm(log(tarsus.mm) ~ foraging+log(body.g),
+                     random= ~measure+region,
+                     data = cdata, prior = prior2.3,verbose=F,
+                     nitt = 1100, thin=10, burnin = 100)
+summary(mod2.2)
+```
 
 -----
 
-
 ## PART 3: Phylogenetic effects and random variance.
 
-As species are not independent of each other due to shared ancestry, we need to take this into account. MCMCglmm allows to include phylogenetic similarity as a random effect. For this, we only need a phylogenetic tree and a column in our data called 'animal' that corresponds to the phylogenetic tips of the tree.
+As species are not independent of each other due to shared ancestry, we need to take this into account. MCMCglmm allows to include phylogenetic similarity as a random effect. For this, we only need a phylogenetic tree and a column in our data called 'animal' that corresponds to the phylogenetic tips of the tree. Phylogenetic effects can be seen as another type of autocorrelation in addition to spatial and temporal autocorrelation and arrises because closely related species are expected to be more similar to each other than random species.
 
 We open the tree and plot it:
 
 ```{r Plot tree, message=FALSE, warning=FALSE, verbose = FALSE}
-tree <- read.tree("ColumbidaeTree.tre")
-plot(tree,cex=0.3)
+ctree <- read.tree("data/ColumbidaeTree.tre")
+plot(ctree,cex=0.3)
 ```
 
 Now, we add a column in our data with the tips of the tree. We already have a column "species", but MCMCglmm need a column names "animal" to associate with the tree.
 
 ```{r Add phylogenetic effects, message=FALSE, warning=FALSE, verbose = FALSE}
-dove$animal <- dove$species
+cdata$animal <- cdata$species
 prior3.1 <- list(G = list(G1 = list(nu=0.002, V=1),G2 = list(nu=0.002, V=1)),
                  R = list(nu=0.002, V=1))
-
-mod3.1 <- MCMCglmm(log(tarsus.mm) ~ 1+log(mass.g),
-                     random= ~animal + measureID,
-                     data = dove, prior = prior3.1,verbose=F,
-                     pedigree=tree,
+mod3.1 <- MCMCglmm(log(tarsus.mm) ~ 1+log(body.g),
+                     random= ~animal + measure,
+                     data = cdata, prior = prior3.1,verbose=F,
+                     pedigree=ctree,
                      nitt = 11000, thin=10, burnin = 100)
 summary(mod3.1)
 ```
@@ -282,10 +312,12 @@ We can see that different random factors explain different proportion of the var
 
 ```{r Check variance, message=FALSE, warning=FALSE, verbose = FALSE}
 posterior.mode(mod3.1$VCV)
+
 ```
 
-However, it's more appropriate to report the intraclass correlation as the proportion of variance explained by each random factor in relative terms. This is done by dividing the variance of factor X by the sum of all varainces.
+However, it's more useful to report the intraclass correlation in relative terms, as the proportion of variance explained by each random factor. This is because we are interested in the proportion of variance explained by each factor, but not by the absolute variance explained (Which will vary a lot between variables, studies, samples,...).
 
+The proportion of variance explanied can be calculated by dividing the variance of factor X by the sum of all variances.
 So the proportion of variance explained by the phylogeny is:
 
 ```{r Intraclass coefficient, message=FALSE, warning=FALSE, verbose = FALSE}
@@ -300,16 +332,4 @@ IC.animal is expressed in relation to the total variance (1). If we want the % w
 round(IC.animal*100,2) #round to 2 decimals and multiple by 100
 ```
 
-This is a useful propierty of the MCMCglmm models, as we can see which is the phylogenetic effect (or heterability) of traits or can calculate the repeatability of measurements.
-
-----
-
-*EXERCISE 4: Compare the proportion of variance
-*Include the "measureID" and "location" as a random factor in a new model. Which factors explains more proportion of the variance?*
-
-----
-
-For more information see: 
-
-https://cran.r-project.org/web/packages/MCMCglmm/vignettes/CourseNotes.pdf
-
+This is a useful propierty of the MCMCglmm models, as we can see which is the phylogenetic effect of traits or can calculate the repeatability of measurements, in case we have mutliple measurements for each specimen or species.
