@@ -1,7 +1,7 @@
 ---
 title: "Bayesian generalised mixed models with MCMCglmm"
 author: "Ferran Sayol"
-date: "5th November 2020"
+date: "6th October 2022"
 output:
   pdf_document: default
   word_document: default
@@ -9,7 +9,8 @@ output:
     df_print: paged
 ---
 
-*Course editions:*
+*Previous Course editions:*
+8th September 2021, Gothenburg (Sweden)
 5th November 2020, Gothenburg (Sweden)
 20th December 2018, Erlangen (Germany)
 
@@ -63,7 +64,7 @@ mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(body.g),
                      nitt = 500, thin=10, burnin = 1)
 ```
 
-Before we even look at our model output we can check if the model ran appropriately (e.g. if the model converged and if there is any issue in chain mixing). We can do this by visually inspecting the chains. For the fixed effects, the samples are stored in *Sol* and for the variance terms, in *VCV*. So *model$Sol[,1]* will give you the first fixed term, in this case the intercept, and *model$VCV[,1]* will give you the first random term, which is just the residual term here. As our model is an mcmc object when we use the *plot()* function we get a trace plot.
+Before we even look at our model output we can check if the model ran appropriately (e.g. if the model converged and if there is any issue in chain mixing). We can do this by visually inspecting the chains. We can extract the full chains using *model$Sol* for the fixed effects and *model$VCV* for the variance terms. So *Sol[,1]* will give you the first fixed term, in this case the intercept, and *VCV[,1]* will give you the first random term, which is just the residual term here. As our model is an mcmc object when we use the *plot()* function we get a trace plot.
 
 ```{r MCMCglmm_plot, message=FALSE, warning=FALSE, verbose = FALSE}
 
@@ -99,7 +100,7 @@ Ideally, we have to make sure that the autocorrelation is low (i.e. less than 0.
 * EXERCISE 1:
 *Increase the thining interval and the number of iterations to make sure there is no autocorrelation and to have a sample of >1000.*
 
-```{r Exercise1, message=FALSE, warning=FALSE,echo=T}
+```{r Exercise1, message=FALSE, warning=FALSE,echo=F}
 prior1 <- list(R=list(V = 1,nu = 0.002)) #We will see this later
 
 mod1.1 <- MCMCglmm(log(tarsus.mm) ~ log(body.g), 
@@ -266,10 +267,10 @@ summary(mod2.2)
 
 -----
 
-* EXECISE 3:
+* EXERCISE 3:
 *Include also the geographical region ("region") as a random effect. Remember you will need to specify the prior for this new factor as well.*
 
-```{r Exercise 3, message=FALSE, warning=FALSE,echo=T}
+```{r Exercise 3, message=FALSE, warning=FALSE,echo=F}
 prior2.3 <- list(G = list(G1 = list(nu=0.002, V=1),G2 = list(nu=0.002, V=1)),R = list(nu=0.002, V=1))
 
 table(cdata$region)
@@ -312,7 +313,6 @@ We can see that different random factors explain different proportion of the var
 
 ```{r Check variance, message=FALSE, warning=FALSE, verbose = FALSE}
 posterior.mode(mod3.1$VCV)
-
 ```
 
 However, it's more useful to report the intraclass correlation in relative terms, as the proportion of variance explained by each random factor. This is because we are interested in the proportion of variance explained by each factor, but not by the absolute variance explained (Which will vary a lot between variables, studies, samples,...).
@@ -333,3 +333,153 @@ round(IC.animal*100,2) #round to 2 decimals and multiple by 100
 ```
 
 This is a useful propierty of the MCMCglmm models, as we can see which is the phylogenetic effect of traits or can calculate the repeatability of measurements, in case we have mutliple measurements for each specimen or species.
+
+----
+
+## FINAL EXERCISE (4): SpatialR and MCMCglmm into practise.
+
+Now, you can do a final exercise to put into practise what you have learned in this tutorial, in the context of spatial analysis. For the spatial part, you will need to load these R-packages:
+
+```{r Rpackages final exercise, message=FALSE, warning=FALSE, verbose = FALSE}
+library(sp)
+library(raster)
+library(sf)
+library(rgeos)
+library(Imap)
+```
+
+We will continue to use the pigeon's dataset example. Now, you can open an additional dataset with some geographical information: *"data/ColumbidaeGeo.txt"*. This data includes coordinates for the breeding and non-breeding coordinates for each species. You can merge this dataset with the previous one, using *merge()*
+
+```{r load Geo, message=FALSE, warning=FALSE, verbose = FALSE}
+gdata <- read.table("data/ColumbidaeGeo.txt",h=T,stringsAsFactors = F)
+cdata <- merge(cdata,gdata,by="species")
+```
+
+Now, you can do two different exercises:
+
+**EXERCISE 4A: Migratory behaviour.**
+
+Classify each species into a migratory or non-migratory species. To do so, you can calculate the migratory distance of each species (i.e. the distance between breeding and non-breeding coordiantes). For this, you can use the function [gdist()](https://www.rdocumentation.org/packages/Imap/versions/1.32/topics/gdist) from the package *imap*.
+
+I will here show how *gdist()* work on. Based on this you should be able to apply it to this specific case.
+
+```{r Soren example, message=FALSE, warning=FALSE}
+# generate a set of random coordinates
+Longitude_1 =  c(110,110,110,110)
+Latitude_1= c(10,20,30,40)
+cords1 <- cbind(Longitude_1,Latitude_1)
+# and another set of random coordinates
+Longitude_2 =  c(100,110,120,130)
+Latitude_2= c(15,20,25,30)
+cords2 <- cbind(Longitude_2,Latitude_2)
+#This line will calculate the distance between the the first set of points, the second set of points e.t.c.c
+gdist(Longitude_1,Latitude_1,Longitude_2,Latitude_2)
+```
+
+Once you get the migratory distance, you can classify species into resident (distance=0) and migratory (distance>0).
+
+```{r Exercise 4A, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+cdata$mig.dist <- gdist(cdata$lon.breeding,cdata$lat.breeding,cdata$lon.nonbreeding,cdata$lat.nonbreeding)
+cdata$migration <- ifelse(cdata$mig.dist>0,"yes","no")
+table(cdata$migration)
+```
+
+**EXERCISE 4B: Insularity.**
+
+For this exercise, we will be using a world map with different attrributes for islands(1) vs continents(0). This is a **shapefile** called *"MapIslands.shp"*. First, try to open and plot the map and the breeding coordinates.
+
+```{r Exercise 4 - Open map, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+WorldMap <- st_read("data/MapIslands/MapIslands.shp") # Open shapefile:
+WorldMap <- as(WorldMap, 'Spatial')
+# We can also get the projection of the map:
+MapProj <- crs(WorldMap)
+# Coordinates for Pigeons breeding sites (With map projection):
+pts <- SpatialPoints(coords=cdata[,c("lon.breeding","lat.breeding")],proj4string = MapProj)
+plot(WorldMap)
+plot(pts,add=T,pch=19,col="red")
+```
+
+Now, you can classify each species into a island or continental species. We can you use the function *over()* to know which breeding coordiantes fall inside islands or continents.
+
+```{r Exercise 4B - plot map, message=FALSE, warning=FALSE, verbose = FALSE}
+# Use function over to get pts over polygons.
+pts.island <- over(pts,WorldMap)
+cdata$insularity <- as.numeric(pts.island$island)
+table(cdata$insularity)
+```
+
+Note 1: Some coordinates might fall in the sea, with value=NA. To solve that we can try to know which is the closest polygon using the function [gDistance()](https://www.rdocumentation.org/packages/rgeos/versions/0.5-5/topics/gDistance) and then get the attributes (i.e. island or continent) of the closest polygon. 
+*Note 2: Be aware this is an advanced exercise. If you do not succeed after several trials, go directly to Exercise 4C and try to include "migration" in the MCMCglmm model.*
+
+```{r Exercise 4Ax, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+nrow(cdata[is.na(cdata$insularity),]) # Is there any NA?
+# Some species with NAs
+ls.sps <- cdata[is.na(cdata$insularity),]$species
+ls.sps # List of species with NAs
+# Try to find closest polygon using gDistance
+for (i in 1:length(ls.sps)){
+  sps.num <- which(cdata$species==ls.sps[i]) # Numer of focal species
+  m.pts <- SpatialPoints(coords=cdata[sps.num,c("lon.breeding","lat.breeding")],proj4string = crs(MapProj)) # Coordinates of focal species
+  gDists <- gDistance(m.pts,WorldMap,byid=T) # Distance to all polygons
+  isl.val <- WorldMap$island[which.min(gDists)] # Attribute of closest (min) polygon
+  cdata[sps.num,]$insularity <- isl.val
+} # End for i
+# No more NAs
+is.na(cdata$insularity)
+# Check that it worked:
+cdata[cdata$species %in% ls.sps,c("species","lat.breeding","lon.breeding","insularity")]
+# Transform insularity to factor:
+cdata$insularity <- ifelse(cdata$insularity==1,"insular","continent")
+table(cdata$insularity)
+```
+
+
+**EXERCISE 4C: MCMCglmm into practise**
+
+Use the information you calculates in exercises **5A** and **5B** (i.e. insularity and migratory behavior) as a predictor in a *MCMCglmm()*. 
+
+- Does the tarsus length vary between migratory and resident species?
+
+```{r Exercise 4c / 1, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+prior4.1 <- list(R = list(V = 1, nu = 0.002),G = list(G1 = list(V = 1, nu = 0.002)))
+
+mod4.1 <- MCMCglmm(log(tarsus.mm) ~ log(body.g) + migration,random=~animal, data=cdata, 
+                 pedigree=ctree, family="gaussian", verbose=F,prior=prior4.1,
+                 nitt=100100,burnin=100,thin=1000)
+summary(mod4.1)
+```
+
+- And what about the wing length?
+
+```{r Exercise 4c / 2, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+prior4.2 <- list(R = list(V = 1, nu = 0.002),G = list(G1 = list(V = 1, nu = 0.002)))
+
+mod4.2 <- MCMCglmm(log(wing.mm) ~ log(body.g) + migration,random=~animal, data=cdata, 
+                 pedigree=ctree, family="gaussian", verbose=F,prior=prior4.2,
+                 nitt=100100,burnin=100,thin=1000)
+summary(mod4.2)
+```
+
+- Does the tarsus length vary between island and continental species?
+
+```{r Exercise 4c / 3, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+prior4.3 <- list(R = list(V = 1, nu = 0.002),G = list(G1 = list(V = 1, nu = 0.002)))
+
+mod4.3 <- MCMCglmm(log(tarsus.mm) ~ log(body.g) + foraging + insularity,random=~animal, data=cdata, 
+                 pedigree=ctree, family="gaussian", verbose=F,prior=prior4.3,
+                 nitt=100100,burnin=100,thin=1000)
+summary(mod4.3)
+```
+
+- Can you do a scatterplot to show the data, using *ggplot()*? You can also try to plot the model results, as we did before.
+
+```{r Exercise 4c / 4, message=FALSE, warning=FALSE, verbose = FALSE,echo=F}
+ggplot(cdata, aes(x=log(body.g),y=log(wing.mm),color=migration))+
+  theme_classic()+geom_point()
+
+cdata$for.ins <- paste(cdata$foraging,cdata$insularity)
+ggplot(cdata, aes(x=log(body.g),y=log(tarsus.mm),color=for.ins))+
+  theme_classic()+geom_point()
+```
+
+-----
